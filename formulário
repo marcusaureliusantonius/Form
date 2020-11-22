@@ -1,0 +1,89 @@
+var express = require("express");
+var app = express();
+
+var formidable = require("express-formidable");
+app.use(formidable());
+
+var mongodb = require("mongodb");
+var mongoClient = mongodb.MongoClient;
+var ObjectId = mongodb.ObjectId;
+
+var http = require("http").createServer(app);
+var bcrypt = require("bcrypt");
+
+app.use("/public", express.static(__dirname + "/public"));
+app.set("view engine", "ejs");
+
+app.use(express.static('public'));
+app.use('/css', express.static(__dirname + 'public/css'));
+app.use('/js', express.static(__dirname + 'public/js'));
+app.use('/img', express.static(__dirname + 'public/img'));
+
+var mainURL = "http://localhost:3000";
+
+http.listen(3000, function () {
+	console.log("Servidor conectado em: " + mainURL);
+
+	mongoClient.connect("mongodb://localhost:27017", function (error, client) {
+		var database = client.db("kudos");
+		console.log("Database Conectada.");
+
+		app.get("/index", function (request, result) {
+			result.render("index");
+		});
+
+		app.post("/index", function (request, result) {
+			var name = request.fields.name;
+			var surname = request.fields.surname;
+			var username = request.fields.username;
+			var email = request.fields.email;
+			var password = request.fields.password;
+			var gender = request.fields.gender;
+			var dob = request.fields.dob;
+			var reset_token = "";
+
+			database.collection("users").findOne({
+				$or: [{
+					"email": email
+				}, {
+					"username": username
+				}]
+			}, function (error, user) {
+				if (user == null) {
+					bcrypt.hash(password, 10, function (error, hash) {
+						database.collection("users").insertOne({
+							"name": name,
+							"surname": surname,
+							"username": username,
+							"email": email,
+							"password": hash,
+							"dob": dob,
+							"gender": gender,
+							"reset_token": reset_token,
+							"profileImage": "",
+							"coverPhoto": "",
+							"city": "",
+							"country": "",
+							"aboutMe": "",
+							"following": [],
+							"followers":[],
+							"pages": [],
+							"groups": [],
+							"notifications": [],
+							"posts":[],
+							"likes": []
+						}, function (error, data) {
+							result.json({
+								"status": "success",
+								"message": "Bem vindo! Seu cadastro feito com sucesso!"
+							});
+						});
+					});
+				} else {
+					result.json({
+						"status": "error",
+						"message": "Username ou Email já existentes."
+					});
+				}
+			});
+		});
